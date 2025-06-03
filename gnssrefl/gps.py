@@ -5247,8 +5247,9 @@ def rapid_gfz_orbits(year,month,day):
                     subprocess.call(['gunzip', longname + '.gz'])
                     store_orbitfile(longname,year,'sp3') ; 
                 foundit = True
-            except:
-                print('problems downloading Rapid GFZ orbit (2)')
+            except Exception as e:
+                print('problems downloading Rapid GFZ orbit (2): ', e)
+
 
         return longname, fdir, foundit
 

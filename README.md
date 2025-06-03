@@ -1,3 +1,8 @@
+This repository is the codebase for the open source GNSS-IR project for high school students. 
+The [main repoistory can be found here](https://github.com/AjayACST/gnss-ir-nz), the main package is the gnsssrefl package,
+original readme below. The only change is the Dockerfile has been updated so that it can be used
+in a Jupyter Hub environment. The notebooks have also been updated to the ones that are needed 
+in the tutorial.
 # gnssrefl v3.12.1
 
 gnssrefl is an open source software package for GNSS Interferometric Reflectometry (GNSS-IR). 

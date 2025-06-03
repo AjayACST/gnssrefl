@@ -53,6 +53,9 @@ RUN pip3 install --no-cache-dir /usr/src/gnssrefl
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
+#SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN chown -R jovyan:users /etc/gnssrefl
+
 USER ${NB_UID}
 ENV PATH="/etc/gnssrefl/exe:$PATH"
 
