@@ -1,0 +1,7 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "jupyterhub": {
+    "$ref": "https://raw.githubusercontent.com/jupyterhub/zero-to-jupyterhub-k8s/refs/heads/main/jupyterhub/values.schema.yaml"
+  }
+}
