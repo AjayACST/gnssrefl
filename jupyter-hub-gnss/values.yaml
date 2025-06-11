@@ -1,0 +1,45 @@
+jupyterhub:
+  imagePullSecret:
+    create: true
+    registry: ghcr.io
+    username: ""
+    password: ""
+
+  scheduling:
+    userScheduler:
+      enabled: false
+
+  proxy:
+    service:
+      loadBalancerIP: 35.244.72.190
+
+  singleuser:
+    cloudMetadata:
+      blockWithIptables: false
+    networkPolicy:
+      enabled: true
+      egress:
+        - to:
+            - ipBlock:
+                cidr: 0.0.0.0/0
+          ports:
+            - port: 21
+              protocol: TCP
+            - protocol: TCP
+    image:
+      name: ghcr.io/ajayacst/gnssrefl
+      tag: latest
+    # `cmd: null` allows the custom CMD of the Jupyter docker-stacks to be used
+    # which performs further customization on startup.
+    cmd: null
+    lifecycleHooks:
+      postStart:
+        exec:
+          command:
+            - "sh"
+            - "-c"
+            - |
+              if [ ! -f /home/jovyan/.notebooks_copied ]; then
+                  cp -r /etc/skel/* /home/jovyan/
+                  touch /home/jovyan/.notebooks_copied
+              fi

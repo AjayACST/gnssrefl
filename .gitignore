@@ -66,3 +66,4 @@ logs
 outliers.txt
 **/.DS_Store
 .idea
+/values.yaml

@@ -51,6 +51,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN pip3 install --no-cache-dir /usr/src/gnssrefl
 
+RUN pip3 install --no-cache-dir dropbox
+
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
 #SHELL ["/bin/bash", "-o", "pipefail", "-c"]
