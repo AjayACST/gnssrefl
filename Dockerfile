@@ -41,11 +41,8 @@ ENV PATH="/etc/gnssrefl/exe:$PATH"
 # should not be needed
 #RUN pip install numpy --upgrade --ignore-installed
 COPY pyproject.toml README.md meson.build /usr/src/gnssrefl/
-#COPY pyproject.toml README.md setup.py /usr/src/gnssrefl/
 COPY gnssrefl /usr/src/gnssrefl/gnssrefl
-COPY notebooks/gnssrefl.ipynb notebooks/gnssrefl.ipynb
-#COPY notebooks/learn-the-code /etc/gnssrefl/notebooks/learn-the-code
-#COPY notebooks/use-cases /etc/gnssrefl/notebooks/use-cases
+COPY notebooks/*.ipynb /etc/skel
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
