@@ -1,0 +1,15 @@
+{{ if .Values.managedCertificate.enabled }}
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: {{ include "jupyter-hub-gnss.fullname" . }}
+  {{ with .Values.managedCertificate.annotations }}
+  annotations:
+    {{ . | toYaml | nindent 4 }}
+  {{ end }}
+spec:
+  {{ with .Values.managedCertificate.domains}}
+  domains:
+    {{ . | toYaml | nindent 4 }}
+  {{end}}
+{{end}}

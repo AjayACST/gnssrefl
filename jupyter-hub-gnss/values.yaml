@@ -1,4 +1,24 @@
+ingress:
+  enabled: true
+  create: true
+  name: ""
+  annotations: {}
+  host: ""
+  staticIp: ""
+
+managedCertificate:
+  enabled: true
+  create: true
+  name: "jupyter-hub-managed-cert"
+  annotations: {}
+  domains: []
+
 jupyterhub:
+  hub:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
   imagePullSecret:
     create: true
     registry: ghcr.io
@@ -8,12 +28,20 @@ jupyterhub:
   scheduling:
     userScheduler:
       enabled: false
-
   proxy:
+    chp:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 52Mi
     service:
-      loadBalancerIP: 35.244.72.190
+      type: NodePort
 
   singleuser:
+    cpu:
+      guarantee: 1
+    nodeSelector:
+      cloud.google.com/compute-class: "Balanced"
     cloudMetadata:
       blockWithIptables: false
     networkPolicy:

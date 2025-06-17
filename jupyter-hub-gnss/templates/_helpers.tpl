@@ -45,7 +45,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "jupyter-hub-gnss.selectorLabels" -}}
+{{ define "jupyter-hub-gnss.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "jupyter-hub-gnss.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
@@ -59,4 +59,23 @@ Create the name of the service account to use
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
+{{- end }}
+
+
+{{ define "jupyter-hub-gnss.managedCertificate" -}}
+{{- if .Values.managedCertificate.create }}
+{{ default (include "jupyter-hub-gnss.fullname" .) .Values.managedCertificate.name }}
+{{- else }}
+{{ default "default" .Values.managedCertificate.name }}
+{{- end }}
+{{- end }}
+
+{{ define "jupyter-hub-gnss.ingress.annotations" -}}
+  {{ $defaults := dict
+      "kubernetes.io/ingress.global-static-ip-name" .Values.ingress.staticIp
+      "networking.gke.io/managed-certificates"      (include "jupyter-hub-gnss.fullname" .)
+      "kubernetes.io/ingress.class"                 "gce"
+  -}}
+  {{ $all := merge $defaults .Values.ingress.annotations | default $defaults -}}
+  {{ toYaml $all | trim | nindent 4 }}
 {{- end }}

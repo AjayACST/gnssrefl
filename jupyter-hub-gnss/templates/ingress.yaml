@@ -1,0 +1,20 @@
+{{ if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "jupyter-hub-gnss.fullname" . }}
+  annotations:
+    {{ include "jupyter-hub-gnss.ingress.annotations" . }}
+spec:
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{include "jupyterhub.proxy-public.fullname" . }}
+                port:
+                  number: 80
+{{end}}
