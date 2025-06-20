@@ -14,6 +14,9 @@ managedCertificate:
   domains: []
 
 jupyterhub:
+  prePuller:
+    continuous:
+      enabled: false
   hub:
     resources:
       requests:
@@ -39,7 +42,11 @@ jupyterhub:
 
   singleuser:
     cpu:
+      limit: 4
       guarantee: 1
+    memory:
+      limit: 4G
+      guarantee: 1G
     nodeSelector:
       cloud.google.com/compute-class: "Balanced"
     cloudMetadata:
