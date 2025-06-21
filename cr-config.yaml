@@ -1,0 +1,2 @@
+index-path: index.yaml
+charts-repo: https://helm.grss-gnssir.org
