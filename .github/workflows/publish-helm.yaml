@@ -32,4 +32,4 @@ jobs:
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         with:
-          charts_dir: ./package
+          charts_dir: ./jupyter-hub-gnss
