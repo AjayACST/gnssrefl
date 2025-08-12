@@ -2,7 +2,7 @@
 apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
-  name: {{ include "jupyter-hub-gnss.managedCertificate" . }}
+  name: {{ include "jupyter-hub-gnss.fullname" . }}
   {{ with .Values.managedCertificate.annotations }}
   annotations:
     {{ . | toYaml | nindent 4 }}

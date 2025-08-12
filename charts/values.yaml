@@ -91,11 +91,11 @@ jupyterhub:
 
   singleuser:
     cpu:
-      guarantee: 1
+      guarantee: 2
     memory:
       guarantee: 2G
-    nodeSelector:
-      cloud.google.com/machine-family: "c2"
+#    nodeSelector:
+#      cloud.google.com/machine-family: "c2"
     cloudMetadata:
       blockWithIptables: false
     networkPolicy:
