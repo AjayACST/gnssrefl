@@ -5,7 +5,7 @@ build-backend = "mesonpy"
 
 [project]
 name = "gnssrefl"
-version = "3.12.1"
+version = "3.16.4"
 description = "A GNSS reflectometry software package "
 readme = "README.md"
 maintainers = [
@@ -25,7 +25,7 @@ dependencies = [
     "progress",
     "astropy",
     "simplekml",
-    "earthscope-sdk",
+    "earthscope-sdk<=0.2.1",
     "jupyterlab",
     "ipywidgets",
 ]

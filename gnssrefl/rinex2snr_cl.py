@@ -31,7 +31,7 @@ def parse_arguments():
     parser.add_argument("station", help="station name", type=str)
     parser.add_argument("year", help="year", type=int)
     parser.add_argument("doy", help="start day of year", type=int)
-    parser.add_argument("-snr", default=None, help="snr file ending, Default is 66: < 30 deg, other values 99: 5-30 deg.; 88: all data; 50: < 10 deg.", type=int)
+    parser.add_argument("-snr", default=None, help="snr file ending, Default is 66: < 30 deg, other values 99: 5-30 deg.; 88: all data; 50: < 10 deg." )
     parser.add_argument("-orb", default=None, type=str,
                         help="orbit type, e.g. gps, gps+glo, gnss, rapid, ultra, gnss3")
     parser.add_argument("-rate", default=None, metavar='low', type=str, help="low or high (tells code which archive folder to search).  If samplerate is 1, this is set automatically to high.") 
@@ -66,7 +66,7 @@ def parse_arguments():
     return {key: value for key, value in args.items() if value is not None}
 
 
-def rinex2snr(station: str, year: int, doy: int, snr: int = 66, orb: str = None, rate: str = 'low', dec: int = 0,
+def rinex2snr(station: str, year: int, doy: int, snr: str = None, orb: str = None, rate: str = 'low', dec: int = 0,
               nolook: bool = False, archive: str = 'all', doy_end: int = None,
               year_end: int = None, overwrite: bool = False, translator: str = 'hybrid', samplerate: int = 30,
               stream: str = 'R', mk: bool = False, weekly: bool = False, strip: bool = False, 
@@ -81,6 +81,8 @@ def rinex2snr(station: str, year: int, doy: int, snr: int = 66, orb: str = None,
     long list of archives. Although RINEX 3 is supported, the default is 
     RINEX 2.11 files. To tell the code you are using a RINEX 3 file, 
     you should use a RINEX 3 station name, i.e. the 9 character version.
+
+    June 29, 2025 - tried to update to new folders for GFZ orbit products ...
 
     New feature as of September 2024: various parameters can be stored in the station.json (created by gnssir_input).
     This is really just for convenience. Parameters are dec, snr, stream, samplerate, archive, and orb. 
@@ -130,7 +132,8 @@ def rinex2snr(station: str, year: int, doy: int, snr: int = 66, orb: str = None,
     I believe the code allows crx.gz, rnx, or rnx.gz endings in the local directory. It 
     also checks the $REFL_CODE/YYYY/rinex directory for the crx.gz and rnx versions. 
 
-    FAQ: what is rate and srate and why do you have both?  rate tells the code which folder to use because archives always have 
+    FAQ: what is rate and srate and why do you have both?  rate tells the 
+    code which folder to use because archives always have 
     files in different directories depending on sample rate.  srate is for RINEX 3 files only because RINEX 3 
     has the sample rate on the filename itself (not just the directory). A RINEX 2.11 filename will not tell you which 
     sample rate it is.
@@ -228,11 +231,11 @@ def rinex2snr(station: str, year: int, doy: int, snr: int = 66, orb: str = None,
 
             gps (default < 2021) : will use GPS broadcast orbit
 
-            rapid (default > 2021) : GFZ rapid, multi-GNSS
+            rapid (default > 2021) : GFZ rapid, multi-GNSS. After 2025/168 the default is gnss.
 
             gps+glos : will use JAXA orbits which have GPS and Glonass (usually available in 48 hours)
 
-            gnss : use GFZ final orbits, which is multi-GNSS (available in 3-4 days?), but from CDDIS archive
+            gnss : use GFZ final orbits, which is multi-GNSS (available in 2-4 days?), but from CDDIS archive
 
             gnss-gfz : GFZ orbits downloaded from GFZ instead of CDDIS, but do they include beidou?. Same as gnss3?
 
@@ -255,7 +258,6 @@ def rinex2snr(station: str, year: int, doy: int, snr: int = 66, orb: str = None,
             wum : Wuhan ultra-rapid, from CDDIS
 
             wum2 : Wuhan ultra-rapid, from Wuhan FTP
-
 
             ultra: first tries GFZ ultra-rapid then Wuhan, multi-GNSS
 
@@ -432,13 +434,18 @@ def rinex2snr(station: str, year: int, doy: int, snr: int = 66, orb: str = None,
     # set noexit cause otherwise it exits ...
     lsp = guts2.read_json_file(station[0:4].lower(), extension,noexit=True)
 
-    if 'snr' in lsp:
-        if lsp['snr'] is not None:
-            #print('snr should not be set to this value, ignoring ', lsp['snr'])
-        #else:
-            snr = lsp['snr']
-            print('An snr ending parameter was found in the station json: ', snr)
-            print('If you try to override on the command line it will not work.')
+    print('Passed value of snr ', snr)
+    if snr is None: # nothing on the command line
+        #print('You did not set the snr option on the command line')
+        if 'snr' in lsp:
+            if lsp['snr'] is None:
+                snr = 66
+            else:
+                snr = lsp['snr']
+        else:
+            snr = 66
+    else:
+        snr = int(snr)
 
     print('Using snr value of ', snr)
 
@@ -452,6 +459,10 @@ def rinex2snr(station: str, year: int, doy: int, snr: int = 66, orb: str = None,
         else:
             if ((year + doy/365.25) > gfz_avail):
                 orb = 'rapid'
+                # our code cannot find the rapid orbits anymore
+                # presumably this can be fixed, but not by me.
+                if ((year + doy/365.25) > 2025 + 168/365.25):
+                    orb = 'gnss'
             else:
                 orb = 'nav'
         print('Using default orbit for this time period: ', orb)

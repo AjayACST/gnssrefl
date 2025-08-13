@@ -41,6 +41,7 @@ import gnssrefl.EGM96 as EGM96
 import gnssrefl.rinex2snr as rnx
 import gnssrefl.sd_libs as sd
 import gnssrefl.kelly as kelly
+import gnssrefl.utils as u
 
 # for future ref
 #import urllib.request
@@ -500,12 +501,12 @@ def dec31(year):
 
     Parameters 
     ----------
-    input: integer
+    input: int
         year
 
     Returns 
     -------
-    doy : integer
+    doy : int
         day of year for December 31
     """
     today=datetime.datetime(year,12,31)
@@ -885,6 +886,7 @@ def orbfile_cddis(name, year, secure_file, secure_dir, file2):
         gzip = True
     else:
         gzip = False
+    print('Searching for ', secure_dir, secure_file)
     try:
         cddis_download_2022B(secure_file, secure_dir)
     except:
@@ -2730,44 +2732,6 @@ def ydoy2ymd(year, doy):
     day = int(d.day)
     return year, month, day
 
-def rewrite_UNR_highrate(fname,station,year,doy):
-    """
-    takes a filename from was already retrieved? from 
-    UNReno, reads it, rewrites as all numbers for other uses.
-    no header, but year, month, day, day of year, seconds vertical, east, north
-    the latter three are in meters
-    stores in $REFL_CODE/yyyy/pos/station
-    """
-# make sure the various output directories  are there
-    xdir = os.environ['REFL_CODE'] 
-    dir1 = xdir + '/' + str(year)
-    if not os.path.isdir(dir1):
-        status = subprocess.call(['mkdir', dir1])
-
-    dir1 = xdir + '/' + str(year) + '/' + 'pos'
-    if not os.path.isdir(dir1):
-        status = subprocess.call(['mkdir', dir1])
-
-    dir1 = xdir + '/' + str(year) + '/' + 'pos' + '/' + station
-#   make filename for the output
-    yy,mm,dd, cyyyy, cdoy, YMD = ydoy2useful(year,doy)
-    outputfile = dir1 + '/' + cdoy + '_hr.txt'
-    print('file will go to: ' , outputfile)
-    if not os.path.isdir(dir1):
-        print('use subprocess to make directory')
-        status = subprocess.call(['mkdir', dir1])
-    try:
-        x=np.genfromtxt(fname, skip_header=1, usecols = (3, 4, 5, 6, 7, 8, 9, 10))
-        N = len(x)
-        print('open outputfile',outputfile)
-        f=open(outputfile,'w+')
-        for i in range(0,N):
-            f.write(" {0:4.0f} {1:2.0f} {2:2.0f} {3:3.0f} {4:7.0f} {5:9.4f} {6:9.4f} {7:9.4f} \n".format(x[i,0], x[i,1],x[i,2],x[i,3], x[i,4],x[i,5],x[i,6],x[i,7]))
-        print('delete the original Blewitt file')
-        subprocess.call(['rm','-f', fname])
-        f.close()
-    except:
-        print('problem with accessing the file')
 
 def month_converter(month):
     """
@@ -2936,69 +2900,6 @@ def getseries(site):
         url = 'http://geodesy.unr.edu/gps_timeseries/rapids/tenv3/NA12/' + siteid + '.NA12.tenv3'
         wget.download(url, out=fname3)
 
-def rewrite_tseries(station):
-    """
-    given a station name, look at a daily blewitt position (ENV) 
-    file and write a new file that is more human friendly
-
-    Parameters
-    ----------
-    station : str
-        4 character station name
-    """
-    siteid = station.upper()
-    # NA12 env time series
-    fname = 'tseries/' + siteid + '.NA12.tenv3'
-    fname_rapid = 'tseries/' + siteid + '.NA12.rapid.tenv3'
-    outputfile = 'tseries/' + station+ '_na12.env'
-    print(fname,outputfile)
-    try:
-        x=np.genfromtxt(fname, skip_header=1, usecols = (3, 7, 8, 9, 10, 11, 12,13))
-        N = len(x)
-        print(N,'open outputfile',outputfile)
-        f=open(outputfile,'w+')
-        for i in range(0,N):
-            mjd = x[i,0]
-            yy,mm,dd = mjd_to_date(mjd) 
-            doy, cdoy, cyyyy, cyy = ymd2doy(yy,mm,dd)
-            east = x[i,1] + x[i,2]
-            north= x[i,3] + x[i,4]
-            # adding in the antenna
-            vert = x[i,5] + x[i,6] +  x[i,7]
-            f.write(" {0:4.0f} {1:2.0f} {2:2.0f} {3:3.0f} {4:13.4f} {5:13.4f} {6:13.4f} \n".format(yy,mm,dd,doy,east,north,vert))
-        f.close()
-    except:
-        print('some problem writing the new output file')
-
-def rewrite_tseries_igs(station):
-    """
-    given a station name, look at a daily blewitt position (ENV)
-    file and write a new file that is less insane to understand
-    """
-    siteid = station.upper()
-    # NA12 env time series
-    fname = 'tseries/' + siteid + '.IGS08.tenv3'
-    outputfile = 'tseries/' + station + '_igs08.env'
-    print(fname,outputfile)
-    try:
-        x=np.genfromtxt(fname, skip_header=1, usecols = (3, 7, 8, 9, 10, 11, 12,13))
-        N = len(x)
-        print(N)
-        print(N,'open outputfile',outputfile)
-        f=open(outputfile,'w+')
-        for i in range(0,N):
-            mjd = x[i,0]
-            yy,mm,dd = mjd_to_date(mjd)
-            doy, cdoy, cyyyy, cyy = ymd2doy(yy,mm,dd)
-            east = x[i,1] + x[i,2]
-            north= x[i,3] + x[i,4]
-            # adding in the antenna
-            vert = x[i,5] + x[i,6] +  x[i,7]
-            f.write(" {0:4.0f} {1:2.0f} {2:2.0f} {3:3.0f} {4:13.4f} {5:13.4f} {6:13.4f} \n".format(yy,mm,dd,doy,east,north,vert))
-        f.close()
-    except:
-        print('some problem writing the output')
-
 
 def llh2xyz(lat,lon,height):
     """
@@ -3050,6 +2951,8 @@ def llh2xyz(lat,lon,height):
 def LSPresult_name(station,year,doy,extension):
     """
     Makes filename for the Lomb Scargle output
+    if extension is not being used you should send it 
+    empty string ('')
 
     Parameters
     ----------
@@ -3081,10 +2984,14 @@ def LSPresult_name(station,year,doy,extension):
     if not os.path.isdir(filedir):
         #print('making new results bdirectory ')
         subprocess.call(['mkdir', filedir])
-    filedirx = filedir + '/' + extension
+
+    if len(extension) > 0:
+        filedirx = filedir + '/' + extension
+    else:
+        filedirx = filedir
+
     # this is what you do if there is an extension
     if not os.path.isdir(filedirx):
-        #print('making new results subdirectory ')
         subprocess.call(['mkdir', filedirx])
 
     filepath1 =  filedirx + '/' + cdoy  + '.txt'
@@ -3372,48 +3279,6 @@ def check_inputs(station,year,doy,snr_type):
     return exitSys
 
 
-def rewrite_tseries_wrapids(station):
-    """
-    given a station name, look at a daily blewitt position (ENV)
-    file and write a new file that is less insane to understand
-    """
-    siteid = station.upper()
-    # NA12 env time series
-    fname = 'tseries/' + siteid + '.NA12.tenv3'
-    fname_rapid = 'tseries/' + siteid + '.NA12.rapid.tenv3'
-    outputfile = 'tseries/' + station+ '_na12.env'
-    print(fname,outputfile)
-    try:
-        x=np.genfromtxt(fname, skip_header=1, usecols = (3, 7, 8, 9, 10, 11, 12,13))
-        y=np.genfromtxt(fname_rapid, skip_header=1, usecols = (3, 7, 8, 9, 10, 11, 12,13))
-        N = len(x)
-        N2 = len(y)
-        print(N,'open outputfile',outputfile)
-        f=open(outputfile,'w+')
-        for i in range(0,N):
-            mjd = x[i,0]
-            yy,mm,dd = mjd_to_date(mjd)
-            doy, cdoy, cyyyy, cyy = ymd2doy(yy,mm,dd)
-            east = x[i,1] + x[i,2]
-            north= x[i,3] + x[i,4]
-            # adding in the antenna
-            vert = x[i,5] + x[i,6] +  x[i,7]
-            f.write(" {0:4.0f} {1:2.0f} {2:2.0f} {3:3.0f} {4:13.4f} {5:13.4f} {6:13.4f} \n".format(yy,mm,dd,doy,east,north,vert))
-# write out the rapid numbers
-        for i in range(0,N2):
-            mjd = y[i,0]
-            yy,mm,dd = mjd_to_date(mjd)
-            doy, cdoy, cyyyy, cyy = ymd2doy(yy,mm,dd)
-            east = y[i,1] + y[i,2]
-            north= y[i,3] + y[i,4]
-            # adding in the antenna
-            vert = y[i,5] + y[i,6] +  y[i,7]
-            f.write(" {0:4.0f} {1:2.0f} {2:2.0f} {3:3.0f} {4:13.4f} {5:13.4f} {6:13.4f} \n".format(yy,mm,dd,doy,east,north,vert))
-#  then close it
-        f.close()
-    except:
-        print('some problem writing the output')
-
 def back2thefuture(iyear, idoy):
     """
     code checks that this is not a day in the future
@@ -3591,6 +3456,10 @@ def get_orbits_setexe(year,month,day,orbtype,fortran):
     picks up and stores orbits as needed.
     It also sets executable location for translation (gpsonly vs multignss)
 
+    why does this work if it does not include the hour for ultra?
+
+    modified 2025 jul 5 to use new GFZ website
+
     Parameters
     ----------
     year : int
@@ -3626,7 +3495,7 @@ def get_orbits_setexe(year,month,day,orbtype,fortran):
         #    orbtype = 'rapid'
 
     foundit = False
-    f=''; orbdir=''
+    f=''; orbdir=''; snrexe = ''
     # define directory for the conversion executables
     exedir = os.environ['EXE']
     if (orbtype == 'grg'):
@@ -3634,15 +3503,29 @@ def get_orbits_setexe(year,month,day,orbtype,fortran):
         f,orbdir,foundit=getsp3file_mgex(year,month,day,'grg')
         snrexe = gnssSNR_version() ; warn_and_exit(snrexe,fortran)
     elif (orbtype == 'gfr'):
-        f,orbdir,foundit=rapid_gfz_orbits(year,month,day)
+        if (year >= 2022):
+            print('Using newest GFZ orbit code for gfr')
+            f,orbdir,foundit = one_gfz_archive_to_rule_them_all(year,month,day,'rapid',0)
+            if not foundit: 
+                f,orbdir,foundit=another_gfz_orbits(year,month,day,'rapid',0)
+        else:
+            f,orbdir,foundit=rapid_gfz_orbits(year,month,day)
         snrexe = gnssSNR_version() ; warn_and_exit(snrexe,fortran)
     elif (orbtype == 'rapid'):
-        f,orbdir,foundit=rapid_gfz_orbits(year,month,day)
+        if (year >= 2022):
+            print('Using newest GFZ orbit code for rapid')
+            f,orbdir,foundit = one_gfz_archive_to_rule_them_all(year,month,day,'rapid',0)
+        else:
+            f,orbdir,foundit=another_gfz_orbits(year,month,day,'rapid',0)
+            if not foundit:
+                f,orbdir,foundit=rapid_gfz_orbits(year,month,day)
         snrexe = gnssSNR_version() ; warn_and_exit(snrexe,fortran)
     elif (orbtype == 'gnss3') or (orbtype == 'gnss-gfz'):
         if (year >= 2024):
             f,orbdir,foundit=newish_gfz_orbits(year,month,day,'final')
-        else:
+        #else:
+        # try try again?
+        if not foundit :
             f,orbdir,foundit=gbm_orbits_direct(year,month,day)
         snrexe = gnssSNR_version() ; warn_and_exit(snrexe,fortran)
     elif (orbtype == 'sp3'):
@@ -3687,26 +3570,23 @@ def get_orbits_setexe(year,month,day,orbtype,fortran):
         f,orbdir,foundit=getsp3file_flex(year,month,day,'esa')
         snrexe = gnssSNR_version(); 
         warn_and_exit(snrexe,fortran)
-    elif orbtype == 'test':
-        # i can't even remember this ... 
-        print('getting gFZ orbits from CDDIS using test protocol')
-        f,orbdir,foundit=getnavfile(year, month, day) # use default version, which is gps only
-        snrexe = gnssSNR_version(); warn_and_exit(snrexe,fortran)
     elif orbtype == 'ultra':
-        print('getting ultra rapid orbits from GFZ local machine')
+        ihr = 0
         doy,cdoy,cyyyy,cyy = ymd2doy(year,month,day)
-        if (year + doy/365.25) > (2024 + 153/365.25):
-            # use new file structure and two day orbit ... 
-            #use hour 0
-            ihr = 0
-            if doy == 1:
-                # use december 31 from previous year
-                f, orbdir, foundit = new_ultra_gfz_orbits(year-1,12,31,ihr)
+        if year >= 2022:
+            f,orbdir,foundit = one_gfz_archive_to_rule_them_all(year,month,day,'ultra',ihr)
+        else: 
+            # no idea if any of this works ... 
+            if (year + doy/365.25) > (2024 + 153/365.25):
+                if year >= 2025:
+                    f,orbdir,foundit=another_gfz_orbits(year,month,day,'ultra',0)
+                else:
+                    if doy == 1:
+                        f, orbdir, foundit = new_ultra_gfz_orbits(year-1,12,31,ihr)
+                    else:
+                        f, orbdir, foundit = new_ultra_gfz_orbits(year,doy-1,0,ihr)
             else:
-                # use previous day ... 
-                f, orbdir, foundit = new_ultra_gfz_orbits(year,doy-1,0,ihr)
-        else:
-            f, orbdir, foundit = ultra_gfz_orbits(year,month,day,0)
+                f, orbdir, foundit = ultra_gfz_orbits(year,month,day,0)
         snrexe = gnssSNR_version(); warn_and_exit(snrexe,fortran)
     else:
         if ('nav' in orbtype):
@@ -3817,7 +3697,6 @@ def new_rinex3_rinex2(r3_filename,r2_filename,dec,gpsonly,log):
         log.write('I found neither a rnx or crx RINEX 3 file and those are the only ones allowed. Exiting \n')
         return fexists
 
-    #print('decimate value: ', dec)
     s1=time.time()
     if os.path.exists(r3_filename_new):
         log.write('Now Convert from RINEX 3 to RINEX 2.11\n')
@@ -3827,16 +3706,12 @@ def new_rinex3_rinex2(r3_filename,r2_filename,dec,gpsonly,log):
                     subprocess.call([gexe,'-finp', r3_filename_new, '-fout', r2_filename, '-vo','2','-ot', gobblygook_gps, '-f','-q'])
                 else:
                     subprocess.call([gexe,'-finp', r3_filename_new, '-fout', r2_filename, '-vo','2','-ot', gobblygook, '-f','-q'])
-                    #subprocess.call([gexe,'-finp', r3_filename, '-fout', r2_filename, '-vo','2','-ot', gobblygook, '-f','-q'])
-                    #'-sei','out','-smp',crate
             else:
                 crate = str(dec)
                 if (gpsonly):
                     subprocess.call([gexe,'-finp', r3_filename_new, '-fout', r2_filename, '-vo','2','-ot', gobblygook_gps, '-sei','out','-smp', crate, '-f','-q'])
                 else:
                     subprocess.call([gexe,'-finp', r3_filename_new, '-fout', r2_filename, '-vo','2','-ot', gobblygook, '-sei','out','-smp', crate, '-f','-q'])
-        #except:
-        #    print('Some kind of problem in translation from RINEX 3 to RINEX 2.11')
     else:
         log.write('RINEX 3 file I need does not exist, so no translation {0:s} \n'.format( r3_filename_new))
 
@@ -3849,7 +3724,7 @@ def new_rinex3_rinex2(r3_filename,r2_filename,dec,gpsonly,log):
         log.write('The RINEX 2.11 file does not exist: {0:s} \n'.format(r2_filename))
 
 
-    #print('remove RINEX3 rnx version of the file ',r3_filename_new)
+    #log.write('Now remove RINEX3 rnx version of the file ',r3_filename_new)
     subprocess.call(['rm', '-f', r3_filename_new ])
 
     return fexists 
@@ -4442,6 +4317,8 @@ def nicerTime(UTCtime):
     """
     Converts fractional time (hours) to HH:MM
 
+    This only works properly for positive numbers.  Took out the screen warning.
+
     Parameters
     ----------
     UTCtime : float
@@ -4453,6 +4330,9 @@ def nicerTime(UTCtime):
         output as HH:MM 
 
     """
+#    if UTCtime < 0:
+#        print('this only works for hours 0-24. no negative numbers')
+
     hour = int(np.floor(UTCtime))
     minute = int ( np.floor(60* ( UTCtime - hour )))
     second = int ( 3600*UTCtime - 3600*hour  - 60*minute)
@@ -4727,6 +4607,49 @@ def l2c_l5_list(year,doy):
     l5satlist = newlist[ik,0]
 
     return l2csatlist, l5satlist
+
+
+def l1c_list(year, doy):
+    """
+    Creates a satellite list of L1C transmitting satellites for a given year/doy
+
+    L1C is only transmitted by GPS Block III satellites launched since December 2018.
+
+    Parameters
+    ----------
+    year: int
+        full year
+    doy: integer
+        day of year
+
+    Returns
+    -------
+    l1csatlist : numpy array (int)
+        satellites possibly transmitting L1C signal
+
+    """
+
+    # GPS Block III satellites with L1C capability
+    # Format: [PRN, launch_year, launch_doy]
+    # Data compiled from GPS launch records as of July 2025
+    # https://en.wikipedia.org/wiki/List_of_GPS_satellites#Block_III
+    l1c = np.array([
+        [4, 2018, 357],  # GPS III SV01 "Vespucci" - Dec 23, 2018
+        [18, 2019, 234],  # GPS III SV02 "Magellan" - Aug 22, 2019
+        [23, 2020, 182],  # GPS III SV03 "Columbus" - Jun 30, 2020
+        [20, 2020, 310],  # GPS III SV04 "Henson" - Nov 5, 2020
+        [22, 2021, 168],  # GPS III SV05 "Neil Armstrong" - Jun 17, 2021
+        [19, 2023, 18],  # GPS III SV06 "Amelia Earhart" - Jan 18, 2023
+        [21, 2024, 351],  # GPS III SV07 "Sally Ride" - Dec 16, 2024
+        [26, 2025, 150],  # GPS III SV08 "Katherine Johnson" - May 30, 2025
+        # Additional GPS III satellites (SV09, SV10) expected 2025-2026
+    ])
+
+    # Find satellites launched before the specified date
+    ij = (l1c[:, 1] + l1c[:, 2] / 365.25) < (year + doy / 365.25)
+    l1csatlist = l1c[ij, 0]
+
+    return l1csatlist
 
 
 def binary(string):
@@ -5247,9 +5170,8 @@ def rapid_gfz_orbits(year,month,day):
                     subprocess.call(['gunzip', longname + '.gz'])
                     store_orbitfile(longname,year,'sp3') ; 
                 foundit = True
-            except Exception as e:
-                print('problems downloading Rapid GFZ orbit (2): ', e)
-
+            except:
+                print('problems downloading Rapid GFZ orbit (2)',url2)
 
         return longname, fdir, foundit
 
@@ -5271,7 +5193,7 @@ def rapid_gfz_orbits(year,month,day):
                     subprocess.call(['gunzip', littlename + '.gz'])
                     foundit = True
             except:
-                print('Problems downloading Rapid GFZ orbit (1)')
+                print('Problems downloading Rapid GFZ orbit (1),url')
 
             if os.path.isfile(littlename):
                 store_orbitfile(littlename,year,'sp3') ; foundit = True
@@ -5945,7 +5867,6 @@ def bfg_password(**kwargs):
         with open(userinfo_file, 'wb') as client_info:
             pickle.dump((user_id,passport) , client_info)
         print('User id and password saved to', userinfo_file)
-
     return user_id, passport
 
 def bfg_data(fstation, year, doy, samplerate=30,debug=False):
@@ -6308,7 +6229,6 @@ def check_navexistence(year,month,day):
     nfile = navdir + '/' + navname
     if not os.path.exists(navdir):
         subprocess.call(['mkdir',navdir])
-    #print('Looking for ', navname, navdir)
 
     if os.path.exists(nfile):
         foundit = True
@@ -6399,33 +6319,38 @@ def checkEGM():
 
     """
     foundfile = False
+    ok = u.check_environment()
+    if not ok:
+        print('Required environment variables not set. Exiting.')
+
     xdir = os.environ['REFL_CODE']
     matfile = 'EGM96geoidDATA.mat'
-    localdir = xdir + '/Files/'
+    localdir = xdir + '/Files'
+    #print('local directory location ', localdir)
     if not os.path.isdir(localdir):
         print('Making ', localdir)
         subprocess.call('mkdir',localdir)
 
-    egm = localdir + matfile
+
     if 'REFL_CODE' in os.environ:
-        egm = localdir + matfile
+        egm = localdir + '/' + matfile
         interiorfile = 'gnssrefl/' + matfile
         if os.path.isfile(egm):
             #print('EGM96 file exists')
             foundfile = True
         elif os.path.isfile(interiorfile):
-            print('cp EGM96 file to where it belongs')
+            print('cp existing copy of EGM96 file to where it belongs')
             subprocess.call(['cp',interiorfile, localdir])
             foundfile = True
         else:
-            print('EGM96 file does not exist. We will try to download and store it in ',localdir)
+            print('EGM96 file does not exist. We will try to download for you and store it in ',localdir)
             githubdir = 'https://raw.githubusercontent.com/kristinemlarson/gnssrefl/master/docs/'   
-            wget.download(githubdir+matfile, localdir + matfile)
+            wget.download(githubdir+matfile, localdir + '/' + matfile)
             if os.path.isfile(egm):
-                print('successful download, EGM file exists')
+                print('successful download, EGM96 file now exists')
                 foundfile = True
             else:
-                print('unsuccessful download')
+                print('unsuccessful download of the EGM96 file')
     else:
         print('The REFL_CODE environment variable has not been set.')
 
@@ -7334,6 +7259,71 @@ def new_ultra_gfz_orbits(year, month, day, hour):
         print('/n')
         return littlename, fdir, foundit
 
+def another_gfz_orbits(year,month,day, orbtype,hour):
+    """
+    a function to access yet more differently named GFZ orbits ...
+
+    Parameters
+    ----------
+    year : int
+        full year
+    month : int
+        month or day of year if day is set to zero
+    day : int
+        day of month
+    orbtype : str
+        kind of orbit, rapid or final
+    hour : int
+        only for ultra
+
+    Returns
+    -------
+    littlename : str
+        name of the orbit file
+    fdir: str
+        name of the file directory where orbit is stored
+    foundit : bool
+        whether file was found
+
+    """
+#    ftp://ftp.gfz-potsdam.de//pub/GNSS/products/rapid/w2371/gfz23714.sp3.gz
+    xdir = 'ftp://ftp.gfz-potsdam.de/pub/GNSS/products/' 
+    #rapid/w2371/gfz23714.sp3.gz
+    foundit = False
+    chour = '{:02d}'.format(hour)
+
+    if day == 0:
+        year,month,day = ydoy2ymd(year, month)
+    month, day, doy, cyyyy, cyy, cdoy = ymd2ch(year,month,day)
+
+    fdir = os.environ['ORBITS'] + '/' + cyyyy + '/sp3'
+    wk,sec = kgpsweek(year,month,day,0,0,0)
+
+    url = xdir + orbtype + '/w'  + str(wk) + '/' 
+    x=int(sec/86400)
+    filename = 'gfz' + str(wk) + str(x) + '.sp3' 
+    if orbtype == 'ultra':
+        filename = 'gfu' + str(wk) + str(x) + '_' + chour + '.sp3' 
+
+    fullname = fdir + '/' + filename
+    if os.path.isfile(fullname):
+        foundit = True
+    elif os.path.isfile(fullname + '.gz'):
+        subprocess.call(['gunzip', fullname + '.gz'])
+        foundit = True
+    else:
+        print(url,filename)
+        try: 
+            wget.download(url + filename + '.gz', filename+'.gz')
+            if os.path.isfile(filename + '.gz'):
+                subprocess.call(['gunzip', filename + '.gz'])
+                store_orbitfile(filename,year,'sp3') ; 
+                foundit = True
+        except:
+            print('tried to download but did not find the requested GFZ orbit file')
+
+    return filename, fdir, foundit
+
 def newish_gfz_orbits(year,month,day, orbtype):
     """
     downloads "newish" gfz final and rapid orbits and stores in $ORBITS locally
@@ -7569,4 +7559,83 @@ def query_coordinate_file(station):
 
     return foundit, lat, lon, ht
 
+
+
+def one_gfz_archive_to_rule_them_all(year,month,day,orbtype,hour):
+    """
+    access to latest GFZ archive structure for orbits
+
+    Parameters
+    ----------
+    year : int
+        full year
+    month : int
+        month or day of year if day is set to zero
+    day : int
+        day of month
+    orbtype : str
+        kind of orbit: rapid, final, ultra
+    hour : int
+        hour of orbit, only used for ultra
+
+    Returns
+    -------
+    filename : str
+        name of the orbit file
+    fdir: str
+        name of the file directory where orbit is stored by gnssrefl
+    foundit : bool
+        whether orbit file was found
+
+    """
+    foundit = False
+    chour = '{:02d}'.format(hour)
+
+    if day == 0: # means you sent day of year in the month spot
+        year,month,day = ydoy2ymd(year, month)
+    month, day, doy, cyyyy, cyy, cdoy = ymd2ch(year,month,day)
+
+    # where orbits are stored by gnssrefl
+    fdir = os.environ['ORBITS'] + '/' + cyyyy + '/sp3'
+    
+    # get the IGS/GPS week number 
+    wk,sec = kgpsweek(year,month,day,0,0,0)
+    x=int(sec/86400)
+
+    xdir = 'https://isdc-data.gfz.de/gnss/products/' + orbtype +  '/' 
+
+    url = xdir + 'w'  + str(wk) + '/' 
+
+
+    if orbtype == 'rapid':
+        filename = 'GFZ0OPSRAP_' + cyyyy + cdoy + '0000_01D_05M_ORB.SP3'
+    elif orbtype == 'ultra':
+        filename = 'GFZ0OPSULT_' + cyyyy + cdoy + chour + '00_02D_05M_ORB.SP3'
+    elif orbtype == 'final':
+        filename = 'GFZ0OPSFIN_' + cyyyy + cdoy + '0000_01D_15M_ORB.SP3'
+    else:
+        print('I do not recognize this type of orbit.  Exiting.', orbtype)
+        return filename, fdir, foundit
+
+    fullname = fdir + '/' + filename
+
+    if os.path.isfile(fullname): # you have it online already
+        print('found locally ', fdir + '/' + filename)
+        foundit = True
+    elif os.path.isfile(fullname + '.gz'): # you have it - but it is gzipped
+        subprocess.call(['gunzip', fullname + '.gz'])
+        foundit = True
+        print('found locally ', fdir + '/' + filename)
+    else:
+        print('Seeking ', url + filename)
+        try: 
+            wget.download(url + filename + '.gz', filename+'.gz')
+            if os.path.isfile(filename + '.gz'):
+                subprocess.call(['gunzip', filename + '.gz'])
+                store_orbitfile(filename,year,'sp3') ; 
+                foundit = True
+        except:
+            print('tried and failed to download ')
+
+    return filename, fdir, foundit
 

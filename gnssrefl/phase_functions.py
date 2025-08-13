@@ -68,12 +68,14 @@ def daily_phase_plot(station, fr,datetime_dates, tv,xdir,subdir,hires_figs):
         whether you want eps instead of png files
 
     """
-    outdir = xdir + '/Files/' + subdir
+    outdir = Path(xdir) / 'Files' / subdir
     plt.figure(figsize=(10, 6))
     plt.plot(datetime_dates, tv[:, 2], 'b-')
     plt.ylabel('phase (degrees)')
     if fr == 1:
         plt.title(f"Daily L1 Phase Results: {station.upper()}")
+    elif fr == 5:
+        plt.title(f"Daily L5 Phase Results: {station.upper()}")
     else:
         plt.title(f"Daily L2C Phase Results: {station.upper()}")
     plt.grid()
@@ -126,7 +128,8 @@ def make_snow_filter(station, medfilter, ReqTracks, year1, year2):
     """
     snowmask_exists = False
     myxdir = os.environ['REFL_CODE']
-    snowfile = myxdir + '/Files/' + station + '/snowmask_' + station + '.txt' 
+    # Use consistent path structure for snow mask file
+    snowfile = Path(myxdir) / 'Files' / station / f'snowmask_{station}.txt' 
     if os.path.exists(snowfile):
         print('Using existing snow mask file, ', snowfile)
         snowmask_exists = True
@@ -139,7 +142,7 @@ def make_snow_filter(station, medfilter, ReqTracks, year1, year2):
     # writes out a daily average file. woudl be better if it returned the values, but this works
     da.daily_avg(station, medfilter, ReqTracks, txtfile, pltit,
               extension, year1, year2, fr, csv) 
-    avgf = myxdir + '/Files/' + station + '/' + txtfile
+    avgf = Path(myxdir) / 'Files' / station / txtfile
     print('Looking in ', avgf)
     x = np.loadtxt(avgf, comments='%')
     # delete the file!
@@ -218,7 +221,7 @@ def vwc_plot(station,t_datetime, vwcdata, plot_path,circles):
     print(f"Saving to {plot_path}")
     plt.savefig(plot_path)
 
-def read_apriori_rh(station,fr):
+def read_apriori_rh(station, fr, extension=''):
     """
     read the track dependent a priori reflector heights needed for
     phase & thus soil moisture.
@@ -249,15 +252,15 @@ def read_apriori_rh(station,fr):
         column 7 is maximum azimuth degrees for the quadrant
     """
     result = []
-    myxdir = os.environ['REFL_CODE']
-    apriori_path_f = myxdir + '/input/' + station + '_phaseRH.txt'
+    file_manager = FileManagement(station, 'apriori_rh_file', frequency=fr, extension=extension)
+    apriori_path_f, format_type = file_manager.find_apriori_rh_file()
 
-    if (fr == 1):
-        apriori_path_f = myxdir + '/input/' + station + '_phaseRH_L1.txt'
-
-    if os.path.exists(apriori_path_f):
+    if apriori_path_f.exists():
         result = np.loadtxt(apriori_path_f, comments='%', ndmin=2)
-        print('Using: ', apriori_path_f) 
+        if format_type == 'legacy':
+            print(f'Using RH file (legacy directory): {apriori_path_f}')
+        else:
+            print(f'Using RH file: {apriori_path_f}')
     else:
         print('Average RH file does not exist')
         sys.exit()
@@ -302,13 +305,75 @@ def test_func_new(x, a, b, rh_apriori,freq):
     """
     if (freq == 20) or (freq == 2):
         freq_least_squares = 2*np.pi*2*rh_apriori/g.constants.wL2
+    elif freq == 5:
+        freq_least_squares = 2*np.pi*2*rh_apriori/g.constants.wL5
     else:
         freq_least_squares = 2*np.pi*2*rh_apriori/g.constants.wL1
 
     return a * np.sin(freq_least_squares * x + b)
 
+def get_vwc_frequency(station: str, extension: str, fr_cmd: str = None):
+    """
+    Determines the frequency to use for VWC workflows.
+    Priority is: command line -> json file -> default (20).
 
-def phase_tracks(station, year, doy, snr_type, fr_list, e1, e2, pele, plot, screenstats, compute_lsp,gzip):
+    Parameters
+    ----------
+    station : str
+        4-character station name.
+    extension : str
+        Analysis extension name.
+    fr_cmd : str, optional
+        Frequency provided from the command line (e.g., '1', '20', or 'all'), by default None.
+
+    Returns
+    -------
+    list
+        A list of frequencies to be used for analysis.
+    """
+    # Handle the 'all' case first, which overrides everything else.
+    if fr_cmd == 'all':
+        print("Processing all supported frequencies: L1 (1), L2C (20), and L5 (5).")
+        print("Note: L1 and L5 are experimental - only L2C is officially supported.")
+        return [1, 20, 5]
+
+    final_fr = None
+    # Use command line frequency if provided (and it's not 'all')
+    if fr_cmd is not None:
+        try:
+            final_fr = int(fr_cmd)
+            print(f"Using frequency from command line: {final_fr}")
+        except ValueError:
+            print(f"Error: Invalid frequency '{fr_cmd}'. Must be an integer or 'all'.")
+            sys.exit()
+    else:
+        # Otherwise, try to read from the json file
+        lsp = gnssir.read_json_file(station, extension, noexit=True)
+        if 'freqs' in lsp and lsp.get('freqs'):
+            if len(lsp['freqs']) == 1:
+                final_fr = lsp['freqs'][0]
+                print(f"Frequency read from JSON file: {final_fr}")
+            else:
+                print("Error: 'freqs' in JSON must be a list with a single value. Exiting.")
+                sys.exit()
+        else:
+            # Default to L2C if not specified anywhere
+            final_fr = 20
+            print("No frequency specified. Defaulting to L2C (20).")
+
+    # Warn if not using the standard L2C frequency
+    if final_fr not in [1, 20, 5]:
+        print(f"Error: Frequency {final_fr} is not supported. Supported frequencies: 1 (L1), 20 (L2C), 5 (L5).")
+        sys.exit()
+    elif final_fr == 1:
+        print(f"Warning: Using L1 frequency ({final_fr}) - EXPERIMENTAL. Only L2C (20) is officially supported.")
+    elif final_fr == 5:
+        print(f"Warning: Using L5 frequency ({final_fr}) - EXPERIMENTAL. Only L2C (20) is officially supported.")
+
+    # Always return a list
+    return [final_fr]
+
+def phase_tracks(station, year, doy, snr_type, fr_list, e1, e2, pele, plot, screenstats, compute_lsp,gzip, extension=''):
     """
     This does the main work of estimating phase and other parameters from the SNR files
     it uses tracks that were predefined by the apriori.py code
@@ -356,7 +421,7 @@ def phase_tracks(station, year, doy, snr_type, fr_list, e1, e2, pele, plot, scre
     # noise region - hardwired for normal sites ~ 2-3 meters tall
     noise_region = [0.5, 8]
 
-    l2c_list, l5_sat = g.l2c_l5_list(year,doy)
+    l2c_list, l5_list = g.l2c_l5_list(year,doy)
 
     if not snrexist:
         print('No SNR file on this day.')
@@ -364,16 +429,17 @@ def phase_tracks(station, year, doy, snr_type, fr_list, e1, e2, pele, plot, scre
 
     else:
         header = "Year DOY Hour   Phase   Nv  Azimuth  Sat  Ampl emin emax  DelT aprioriRH  freq estRH  pk2noise LSPAmp\n(1)  (2)  (3)    (4)   (5)    (6)    (7)  (8)  (9)  (10)  (11)   (12)     (13)  (14)    (15)    (16)"
-        file_manager = FileManagement(station, FileTypes.phase_file, year, doy, file_not_found_ok=True)
-        print(f"Saving phase file to: {file_manager.get_file_path()}")
-        with open(file_manager.get_file_path(), 'w') as my_file:
+        output_path = FileManagement(station, 'phase_file', year, doy, extension=extension).get_file_path()
+
+        print(f"Saving phase file to: {output_path}")
+        with open(output_path, 'w') as my_file:
             np.savetxt(my_file, [], header=header, comments='%')
             # read the SNR file into memory
             sat, ele, azi, t, edot, s1, s2, s5, s6, s7, s8, snr_exists = read_snr.read_one_snr(obsfile, 1)
 
             for freq in fr_list:
             # read apriori reflector height results
-                apriori_results = read_apriori_rh(station,freq)
+                apriori_results = read_apriori_rh(station, freq, extension)
 
                 print('Analyzing Frequency ', freq, ' Year ', year, ' Day of Year ', doy)
 
@@ -397,6 +463,11 @@ def phase_tracks(station, year, doy, snr_type, fr_list, e1, e2, pele, plot, scre
                     if (freq == 20) and (sat_number not in l2c_list) :
                         if screenstats: 
                             print('Asked for L2C but this is not L2C transmitting on this day: ', int(sat_number))
+                        compute_lsp = False
+                    
+                    if (freq == 5) and (sat_number not in l5_list):
+                        if screenstats: 
+                            print('Asked for L5 but this is not L5 transmitting on this day: ', int(sat_number))
                         compute_lsp = False
 
                     if screenstats:
@@ -475,7 +546,7 @@ def low_pct(amp, basepercent):
 
 
 def convert_phase(station, year, year_end=None, plt2screen=True,fr=20,tmin=0.05,tmax=0.5,polyorder=-99,circles=False,
-        subdir='',hires_figs=False):
+        subdir='',hires_figs=False, extension=''):
     """
     Convert GPS phase to VWC. Using Clara Chew's algorithm from 
     Matlab write_vegcorrect_smc.m
@@ -515,7 +586,7 @@ def convert_phase(station, year, year_end=None, plt2screen=True,fr=20,tmin=0.05,
 
     # read makejson
     station_file = FileManagement(station, 'make_json')
-    json_data = station_file.read_file()
+    json_data = gnssir.read_json_file(station, extension, silent=True)
 
     if json_data['lat'] >= 0:
         print('Northern hemisphere summer')
@@ -525,7 +596,7 @@ def convert_phase(station, year, year_end=None, plt2screen=True,fr=20,tmin=0.05,
         southern = True
 
     else:
-        print(f"the required json file created by gnssir_input could not be found: {station_file.get_file_path()}")
+        print(f"The required json file could not be found or is invalid: {station_file.get_file_path()}")
         sys.exit()
 
     # for PBO H2O this was set using STATSGO. 5% is reasonable as a starting point for australia
@@ -540,12 +611,13 @@ def convert_phase(station, year, year_end=None, plt2screen=True,fr=20,tmin=0.05,
     myxdir = os.environ['REFL_CODE']
 
 
-    # begging for a function ...
-    # overriding Kelly's code for now
+    # Use FileManagement for consistent phase file paths
+    file_manager = FileManagement(station, 'daily_avg_phase_results', extension=extension)
+    fileout = file_manager.get_file_path()
+    
+    # Handle L1 frequency naming convention
     if (fr == 1):
-        fileout = myxdir + '/Files/' + subdir + '/' + station + '_phase_L1.txt'
-    else:
-        fileout = myxdir + '/Files/' + subdir + '/' + station + '_phase.txt'
+        fileout = fileout.parent / f"{station}_phase_L1.txt"
     print(subdir)
 
     if os.path.exists(fileout):
@@ -700,7 +772,7 @@ def convert_phase(station, year, year_end=None, plt2screen=True,fr=20,tmin=0.05,
     ax.grid()
     plt.gcf().autofmt_xdate()
 
-    outdir = f'{xdir}/Files/{subdir}'
+    outdir = Path(xdir) / 'Files' / subdir
 
     if hires_figs:
         plot_path = f'{outdir}/{station}_phase_vwc_result.eps'
@@ -720,13 +792,16 @@ def convert_phase(station, year, year_end=None, plt2screen=True,fr=20,tmin=0.05,
     if plt2screen:
         plt.show()
 
-    vwcfile = FileManagement(station, FileTypes.volumetric_water_content).get_file_path()
-
-    vwcfile = f'{outdir}/{station}_vwc.txt'
+    # Use FileManagement with extension support for consistent directory structure
+    file_manager = FileManagement(station, 'volumetric_water_content', extension=extension)
+    vwcfile = file_manager.get_file_path()
     print('>>> VWC results being written to ', vwcfile)
     with open(vwcfile, 'w') as w:
         N = len(nv)
+        freq_map = {1: "L1", 2: "L2C", 20: "L2C", 5: "L5"}
+        freq_name = freq_map.get(fr, f"Frequency {fr}")
         w.write("% Soil Moisture Results for GNSS Station {0:4s} \n".format(station))
+        w.write("% Frequency used: {0} \n".format(freq_name))
         w.write("% {0:s} \n".format('https://github.com/kristinemlarson/gnssrefl'))
         w.write("% FracYr    Year   DOY   VWC Month Day \n")
         for iw in range(0, N):
@@ -743,7 +818,7 @@ def convert_phase(station, year, year_end=None, plt2screen=True,fr=20,tmin=0.05,
                 w.write(f"{fdate:10.4f} {myyear:4.0f} {mydoy:4.0f} {watercontent:8.3f} {mm:3.0f} {dd:3.0f} \n")
 
 
-def write_avg_phase(station, phase, fr,year,year_end,minvalperday,vxyz,subdir):
+def write_avg_phase(station, phase, fr,year,year_end,minvalperday,vxyz,subdir,extension=''):
 
     """
     creates output file for average phase results
@@ -771,6 +846,9 @@ def write_avg_phase(station, phase, fr,year,year_end,minvalperday,vxyz,subdir):
 
     subdir : str
         subdirectory for results
+    
+    extension : str, optional
+        analysis extension for directory organization
 
     Returns
     -------
@@ -792,11 +870,13 @@ def write_avg_phase(station, phase, fr,year,year_end,minvalperday,vxyz,subdir):
 
     tv = np.empty(shape=[0, 4])
 
-    # ultimately would like to use kelly's code here
+    # Use FileManagement for consistent phase file paths
+    file_manager = FileManagement(station, 'daily_avg_phase_results', extension=extension)
+    fileout = file_manager.get_file_path()
+    
+    # Handle L1 frequency naming convention
     if (fr == 1):
-        fileout = myxdir + '/Files/'  + subdir + '/' + station + '_phase_L1.txt'
-    else:
-        fileout = myxdir + '/Files/' + subdir + '/' + station + '_phase.txt'
+        fileout = fileout.parent / f"{station}_phase_L1.txt"
 
     print('Daily averaged phases will be written to : ', fileout)
     with open(fileout, 'w') as fout:
@@ -822,7 +902,7 @@ def write_avg_phase(station, phase, fr,year,year_end,minvalperday,vxyz,subdir):
         fout.close()
     return tv
 
-def apriori_file_exist(station,fr):
+def apriori_file_exist(station, fr, extension=''):
     """
     reads in the a priori RH results
 
@@ -834,23 +914,20 @@ def apriori_file_exist(station,fr):
     fr : integer
         frequency
         
+    extension : str, optional
+        analysis extension for finding files
+        
     Returns
     -------
     boolean as to whether the apriori file exists
 
     """
-    # do not have time to use this
-    file_manager = FileManagement(station, FileTypes.apriori_rh_file)
-    # for l2c
-    myxdir = os.environ['REFL_CODE']
-    apriori_path_f = myxdir + '/input/' + station + '_phaseRH.txt'
-
-    if (fr == 1):
-        apriori_path_f = myxdir + '/input/' + station + '_phaseRH_L1.txt'
+    file_manager = FileManagement(station, 'apriori_rh_file', frequency=fr, extension=extension)
+    apriori_path_f, format_type = file_manager.find_apriori_rh_file()
     
-    return os.path.exists(apriori_path_f) 
+    return apriori_path_f.exists() 
 
-def load_phase_filter_out_snow(station, year1, year2, fr,snowmask):
+def load_phase_filter_out_snow(station, year1, year2, fr, snowmask, extension = ''):
     """
     Load all phase data and attempt to remove outliers from snow if snowmask provided. 
 
@@ -902,11 +979,20 @@ def load_phase_filter_out_snow(station, year1, year2, fr,snowmask):
     newresults = []
     results_trans = []
     vquad = np.empty(shape=[0, 16])
-    xdir = os.environ['REFL_CODE']
     # output will go to 
-    fname = xdir + '/Files/' + station + '/raw.phase'  
+    output_dir = Path(os.environ['REFL_CODE']) / 'Files' / station
+    if extension:
+        output_dir = output_dir / extension
 
-    dataexist, results = load_sat_phase(station, year1,year2, fr)
+    # Ensure the directory exists before trying to save to it
+    fname = output_dir / 'raw.phase'
+
+    dataexist, results = load_sat_phase(station, year1,year2, fr, extension)
+    if not dataexist:
+        print("No phase data was found to load.")
+        # Return empty values to prevent a crash downstream
+        return False, [], [], [], [], [], [], [], [], [], [], []
+
     results = results.T # backwards for consistency
     if snowmask == None:
         nr,nc = np.shape(results)
@@ -981,7 +1067,7 @@ def help_debug(rt,xdir, station):
         name of the station
 
     """
-    fname = xdir + '/Files/' + station +'/tmp.' + station
+    fname = Path(xdir) / 'Files' / station / f'tmp.{station}'
     # don't have a priori rh values at this point
     rhtrack = 0
     #if True:
@@ -1020,10 +1106,13 @@ def load_avg_phase(station,fr):
     avg_phase = []
     avg_exist = False
 
+    # Use FileManagement for consistent phase file paths
+    file_manager = FileManagement(station, 'daily_avg_phase_results')
+    xfile = file_manager.get_file_path()
+    
+    # Handle L1 frequency naming convention
     if fr == 1:
-        xfile = f'{xdir}/Files/{station}/{station}_phase_L1.txt'
-    else:
-        xfile = f'{xdir}/Files/{station}/{station}_phase.txt'
+        xfile = xfile.parent / f"{station}_phase_L1.txt"
 
     if os.path.exists(xfile):
         result = np.loadtxt(xfile, comments='%')
@@ -1042,7 +1131,7 @@ def load_avg_phase(station,fr):
     return avg_exist, avg_date, avg_phase
 
 
-def load_sat_phase(station, year, year_end, freq):
+def load_sat_phase(station, year, year_end, freq, extension = ''):
     """
     Picks up the phase estimates from local (REFL_CODE) results section
     and returns most of the information from those files
@@ -1069,7 +1158,7 @@ def load_sat_phase(station, year, year_end, freq):
     print('Requested frequency: ', freq)
     dataexist = False
     xdir = os.environ['REFL_CODE']
-    xfile = xdir + '/input/override/' + station + '_vwc' 
+    xfile = Path(xdir) / 'input' / 'override' / f'{station}_vwc' 
     found_override = False
     # not implementing this yet
     if os.path.exists(xfile):
@@ -1087,6 +1176,8 @@ def load_sat_phase(station, year, year_end, freq):
         print('reading in year', yyyy)
         # where the results are stored
         data_dir = thedir / str(yyyy) / 'phase' / station
+        if extension:
+            data_dir = data_dir / extension
         local_results = read_files_in_dir(data_dir)
         if local_results:
             results.extend(local_results)
@@ -1186,9 +1277,9 @@ def set_parameters(station, minvalperday,tmin,tmax,min_req_pts_track,fr, year, y
     g.checkFiles(station, '')
     # should not crash if file does not exist...
     if extension is None:
-        lsp = gnssir.read_json_file(station, '',noexit=True)
+        lsp = gnssir.read_json_file(station, '',noexit=True, silent=True)
     else:
-        lsp = gnssir.read_json_file(station, extension,noexit=True)
+        lsp = gnssir.read_json_file(station, extension,noexit=True, silent=True)
 
     # originally this was for command line interface ... 
     remove_bad_tracks = auto_removal # ??
@@ -1250,9 +1341,12 @@ def set_parameters(station, minvalperday,tmin,tmax,min_req_pts_track,fr, year, y
     if tmax is None:
         tmax = 0.5
 
-    # default is station name
-    if subdir == None:
-        subdir = station 
+    # default is station name, but use extension if provided
+    if subdir is None:
+        if extension:
+            subdir = f"{station}/{extension}"
+        else:
+            subdir = station
 
     # make sure subdirectory exists
     g.set_subdir(subdir)

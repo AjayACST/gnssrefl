@@ -3,7 +3,7 @@ The [main repoistory can be found here](https://github.com/AjayACST/gnss-ir-nz),
 original readme below. The only change is the Dockerfile has been updated so that it can be used
 in a Jupyter Hub environment. The notebooks have also been updated to the ones that are needed 
 in the tutorial.
-# gnssrefl v3.12.1
+# gnssrefl v3.16.3
 
 gnssrefl is an open source software package for GNSS Interferometric Reflectometry (GNSS-IR). 
 When showing results created using gnssrefl, please use:
@@ -23,7 +23,13 @@ gnssrefl also has a DOI from zenodo.
 
 The latest pypi version can be found here [![PyPI Version](https://img.shields.io/pypi/v/gnssrefl.svg)](https://pypi.python.org/pypi/gnssrefl) 
 
-Latest Feature - you can set beginning and end dates in <code>daily_avg</code> and <code>subdaily</code>. The parameters are 
+Latest Features
+
+- You can estimate LSP in SNR units of dB-Hz. Command line option dbhz.
+
+- Soil moisture can be computed from L1 and L5 data, see e.g. [George Townsend PR](https://github.com/kristinemlarson/gnssrefl/pull/354)
+
+- you can set beginning and end dates in <code>daily_avg</code> and <code>subdaily</code>. The parameters are 
 called date1 and date2. See the descriptions of these modules in the usual place.
 
 Questions and bug reports for gnssrefl (but not the notebooks) **must** be submitted via the **Issues** button at 
@@ -35,8 +41,12 @@ the Low Priority list and I think it would be really healthy for our community t
 willing to apply their expertise to provide fixes and enhancements 
 to the notebook collection that can be reviewed in a pull request and merged for deployment.*
 
+**Questions?**
 
-**Some new features:**
+Try looking at old Issues on github. People might have asked your question before. If you found our documentation confusing or 
+lacking, please submit a PR to improve it.
+
+**Some older new features:**
 
 You can now store coordinates for your local GNSS-IR sites. 
 See [file formats](https://gnssrefl.readthedocs.io/en/latest/pages/file_structure.html) for more information.

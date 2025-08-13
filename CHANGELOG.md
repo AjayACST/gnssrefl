@@ -3,6 +3,94 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## 3.16.4
+August 11, 2025
+
+Allow lomb scargle periodogram to be done on SNR data in original dB-Hz units.
+Use command line option -dbhz True
+
+
+## 3.16.3
+August 4, 2025
+
+Fixed bug in daily_avg (which meant it crashed). Now check that input LSP files have doy in the first
+three characters and that it ends in txt.
+
+Changed daily amplitude plot in **daily_avg** to be frequency dependent (was previously all frequencies together).
+
+## 3.16.2
+July 29, 2025
+
+[George Townsend PR](https://github.com/kristinemlarson/gnssrefl/pull/355) to increase speed of SNR load.
+Remove unused position file reading code.
+
+## 3.16.1
+July 26, 2025
+
+Fixed bug using savearcs option in gnssir
+
+## 3.16.0
+July 24, 2025
+
+Various changes to the soil moisture code. This was done by George Townsend to support
+L1 soil moisture retrievals.  
+
+See [this PR](https://github.com/kristinemlarson/gnssrefl/pull/353) for more details.
+
+Catastrophic problem with the docker - it would not build because it was 
+using out of date debian (buster). It is now pegged to bookworm.  
+
+
+## 3.15.3
+minor changes 
+
+## 3.15.2
+
+Changed rinex3_snr to write out logs properly.
+
+## 3.15.1
+
+The nooverwrite option in gnssir was not properly working ... because I had moved the 
+compress snr code 
+
+## 3.15.0
+
+Added new directory structure for GFZ rapid and ultra-rapid orbits. old directories were failing.
+YOU STILL NEED TO USE orb option gnss to get Beidou. The rapid product does not have it.
+
+I have not changed the final orbits that live in Potsdam - I typically pick up the final GFZ
+orbits from CDDIS, which continues to be linked to the orb of gnss.
+
+This impacted rinex2snr, nmea2snr, and rinex3_snr.  If you find places with problems, please post an issue.
+I still do not fully understand how/when GFZ made these changes.  It could be that the what I wrote was
+correct at the time, but they have migrated to new sites over the years. Since nothing broke, I did not 
+notice it. Thanks to Leila Cruz for alerting me to this problem.
+
+
+## 3.14.0
+
+added "midnite crossing" capability.  -midnite T in gnssir.  Not 100 percent sure i did it the best
+way, but it is a start.  All it does is check to see if you have an arc that starts at midnite - 
+and if so, it then uses data from the last two hours of the previous day to allow you to get a better
+RH. 
+
+found a bug in nicerTime in gps.py that was used to write out UTC time in logs (HH:MM). Mostly it did not
+like negative times, which is fine, because why are you using HH:MM anyway?  You should use MJD.  
+But the bug was also killing file creation for people that asked for time tags in month, day, 
+hours, minutes. So I guess not so many people were using that option!  
+(this was because I was writing out the LSP file results - and np.write did not like that that column was a string - it wanted all floats.)
+
+access to standard (default) rapid GFZ orbits is failing as of year 2025, doy 169.  
+am changing default from that time stance to orb option gnss.
+
+Pinned earthscope_sdk to an old version as their new version does not include the code we use.
+Problem has been reported to earthscope.
+
+## 3.13.0
+Fixing a bug in the docker for Windows user.  Used slash twice in a filename???  for EGM96 file.
+This doesn't cause a problem on a mac or maybe other machines. But it was found
+by someone using Windows and the Docker. And there is no reason to have double slashes.
+Also went ahead and installed it for the Docker. Hopefully.
 
 ## 3.12.1
 
